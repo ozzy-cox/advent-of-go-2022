@@ -47,7 +47,5 @@ func main() {
 		}
 	}
 
-	for _, value := range maxes {
-		fmt.Printf("- %d\n", value)
-	}
+	fmt.Println(maxes)
 }
