@@ -132,6 +132,6 @@ func main() {
 		}
 	}
 
-	openedValves := make(map[string]bool)
-	fmt.Println(solve(30, nodes["AA"], openedValves, dists, nodes))
+	// openedValves := make(map[string]bool)
+	// fmt.Println(solve(30, nodes["AA"], openedValves, dists, nodes))
 }
