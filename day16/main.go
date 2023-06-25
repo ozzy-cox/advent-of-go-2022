@@ -3,18 +3,20 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Node struct {
-	id         string
-	gid        uint
-	adjs       []string
-	rate       int
-	isReleased bool
+	id   string
+	gid  uint
+	adjs []string
+	rate int
+	// isReleased bool
 }
 type Queue[T any] []T
 
@@ -37,33 +39,63 @@ type QItem struct {
 	node Node
 }
 
-func solve(time int, curr Node, openedValves map[string]bool, dists map[string]map[string]int, nodes map[string]Node) int {
-	maxVal := 0
-	fmt.Println(time)
-	for k := range dists[curr.id] {
-
-		// fmt.Println(k, v, maxVal)
-		//  Do not open the valve
-		resOpen := 0
-		remTime := time - dists[curr.id][k]
-		resClose := solve(remTime, nodes[k], openedValves, dists, nodes)
-
-		// Open the valve
-		if _, ok := openedValves[k]; !ok {
-			fmt.Println("enterereered")
-			// fmt.Println(k, remTime, nodes[k].rate)
-			openedValves[k] = true
-			maxVal += (remTime - 1) * nodes[k].rate
-			resOpen = solve(remTime-1, nodes[k], openedValves, dists, nodes)
+func max(arr []int) int {
+	max := arr[0]
+	for i := 0; i < len(arr); i++ {
+		if max < arr[i] {
+			max = arr[i]
 		}
-		// fmt.Println(resClose, resOpen)
-		maxVal += int(math.Max(float64(resClose), float64(resOpen)))
 	}
+	return max
+}
+
+func getKeys(_map map[string]bool) []string {
+	keys := make([]string, len(_map))
+
+	i := 0
+	for k := range _map {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
+func solve(time int, curr Node, openedValves map[string]bool, visited map[string]bool, dists map[string]map[string]int, nodes map[string]Node) int {
+	maxVal := 0
+
+	maxOfPaths := make([]int, 0)
+	visited[curr.id] = true
+	if time > 0 {
+		for k := range dists[curr.id] {
+			if _, ok := visited[k]; !ok {
+				//  Do not open the valve
+				resOpen := 0
+				remTime := time - dists[curr.id][k]
+				resClose := solve(remTime, nodes[k], openedValves, visited, dists, nodes)
+
+				// Open the valve
+				if _, ok := openedValves[k]; !ok && remTime > 0 {
+					openedValves[k] = true
+					resOpen = solve(remTime-1, nodes[k], openedValves, visited, dists, nodes) + ((remTime - 1) * nodes[k].rate)
+					delete(openedValves, k)
+				}
+				localMax := int(math.Max(float64(resClose), float64(resOpen)))
+				// fmt.Println(maxVal)
+				maxOfPaths = append(maxOfPaths, localMax)
+			}
+		}
+	}
+
+	if len(maxOfPaths) > 0 {
+		maxVal = max(maxOfPaths)
+	}
+
+	delete(visited, curr.id)
 	return maxVal
 }
 
 func main() {
-	file, _ := os.Open("smallinput.txt")
+	file, _ := os.Open("input.txt")
 
 	scanner := bufio.NewScanner(file)
 
@@ -88,12 +120,11 @@ func main() {
 		nodes[id] = node
 		gid++
 	}
-	fmt.Println(nodes)
 
 	dists := make(map[string]map[string]int)
 
 	for _, node := range nodes {
-		if node.id != "AA" && node.rate != 0 {
+		if node.rate == 0 && node.id != "AA" {
 			continue
 		}
 		visited := make(map[string]bool)
@@ -116,7 +147,6 @@ func main() {
 				if _, ok := visited[adjNode]; !ok {
 					visited[adjNode] = true
 					if nodes[adjNode].rate != 0 {
-						fmt.Println(curr.node.id, adjNode)
 						dists[node.id][adjNode] = dist + 1
 					}
 					q.Push(QItem{
@@ -130,6 +160,14 @@ func main() {
 		if node.id != "AA" {
 			delete(dists[node.id], "AA")
 		}
+		fmt.Println(dists)
 	}
 
+	openedValves := make(map[string]bool)
+	visited := make(map[string]bool)
+	start := time.Now()
+
+	fmt.Println(solve(30, nodes["AA"], visited, openedValves, dists, nodes))
+	elapsed := time.Since(start)
+	log.Printf("Binomial took %s", elapsed)
 }
