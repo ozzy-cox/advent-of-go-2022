@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bits-and-blooms/bitset"
 )
 
 type Node struct {
@@ -36,6 +38,10 @@ type QItem struct {
 	dist int
 	node Node
 }
+type Result struct {
+	bits  bitset.BitSet
+	value int
+}
 
 func max(arr []int) int {
 	maxIdx := 0
@@ -49,42 +55,32 @@ func max(arr []int) int {
 	return maxIdx
 }
 
-func getKeys[T any](_map map[string]T) []string {
-	keys := make([]string, len(_map))
-
-	i := 0
-	for k := range _map {
-		keys[i] = k
-		i++
-	}
-	return keys
-}
-
-func solve(time int, curr Node, sum int, openedValves map[string]bool, visited map[string]bool, dists map[string]map[string]int, nodes map[string]Node, results map[string]int, path []string) (int, []string) {
+func solve(time int, curr Node, sum int, visited *bitset.BitSet, openedValves *bitset.BitSet, dists map[string]map[string]int, nodes map[string]Node, results map[string]Result, path []string) (int, []string) {
 	maxVal := 0
 	maxOfPaths := make([]int, 0)
-	maxPath := make([]string, 0)
+	var maxPath []string
 	paths := make([][]string, 0)
-	visited[curr.id] = true
+	visited.Set(curr.gid)
 	if curr.id != "AA" {
 		path = append(path, curr.id)
 	}
 	if time > 0 {
-		for k := range dists[curr.id] {
-			if _, ok := visited[k]; !ok {
+		for k, dist := range dists[curr.id] {
+			node := nodes[k]
+			remTime := time - dist
+			if !visited.Test(node.gid) && remTime > 0 {
 				//  Do not open the valve
 				resOpen := 0
 				pathOpen := make([]string, 0)
-				remTime := time - dists[curr.id][k]
-				resClose, pathClose := solve(remTime, nodes[k], sum, openedValves, visited, dists, nodes, results, path)
+				resClose, pathClose := solve(remTime, node, sum, visited, openedValves, dists, nodes, results, path)
 
 				// Open the valve
-				if _, ok := openedValves[k]; !ok && remTime > 0 {
-					openedValves[k] = true
-					resOpen, pathOpen = solve(remTime-1, nodes[k], sum+((remTime-1)*nodes[k].rate), openedValves, visited, dists, nodes, results, path)
-					resOpen = resOpen + ((remTime - 1) * nodes[k].rate)
-					pathOpen = append(pathOpen, nodes[k].id)
-					delete(openedValves, k)
+				if !openedValves.Test(node.gid) {
+					openedValves.Set(node.gid)
+					resOpen, pathOpen = solve(remTime-1, node, sum+((remTime-1)*node.rate), visited, openedValves, dists, nodes, results, path)
+					resOpen = resOpen + ((remTime - 1) * node.rate)
+					pathOpen = append(pathOpen, node.id)
+					openedValves.Clear(node.gid)
 				}
 				if resClose > resOpen {
 					paths = append(paths, pathClose)
@@ -103,21 +99,23 @@ func solve(time int, curr Node, sum int, openedValves map[string]bool, visited m
 		maxPath = paths[maxIdx]
 	}
 
-	results[strings.Join(path, ",")] = sum
-
-	delete(visited, curr.id)
-	return maxVal, maxPath
-}
-
-func isDisjoint(set1 []string, set2 []string) bool {
-	for _, i := range set1 {
-		for _, j := range set2 {
-			if i == j {
-				return false
+	resultKey := openedValves.String()
+	if result, ok := results[resultKey]; ok {
+		if result.value < sum {
+			results[resultKey] = Result{
+				value: sum,
+				bits:  *openedValves.Clone(),
 			}
 		}
+	} else {
+		results[resultKey] = Result{
+			value: sum,
+			bits:  *openedValves.Clone(),
+		}
 	}
-	return true
+
+	visited.Clear(curr.gid)
+	return maxVal, maxPath
 }
 
 func main() {
@@ -186,54 +184,28 @@ func main() {
 		if node.id != "AA" {
 			delete(dists[node.id], "AA")
 		}
-		fmt.Println(dists)
 	}
 
-	openedValves := make(map[string]bool)
-	visited := make(map[string]bool)
+	openedValves := bitset.New(uint(len(dists)))
+	visited := bitset.New(uint(len(dists)))
 
-	results := make(map[string]int)
-	start := time.Now()
+	results := make(map[string]Result)
 
 	path := make([]string, 0)
+	start := time.Now()
+
 	fmt.Println(solve(26, nodes["AA"], 0, visited, openedValves, dists, nodes, results, path))
 	elapsed := time.Since(start)
-	fmt.Printf("Binomial took %s\n", elapsed)
-	fmt.Println(path)
-	keys := getKeys(results)
-	fmt.Println(len(results))
-
-	for k, v := range results {
-		if v == 0 {
-			delete(results, k)
-		}
-	}
-	// sort.SliceStable(keys, func(i int, j int) bool {
-	// 	return results[keys[i]] < results[keys[j]]
-	// })
-
+	fmt.Printf("Elapsed %s\n", elapsed)
 	// Find disjoint sets
-
-	fmt.Println(len(keys))
 	max := 0
-	var seta []string
-	var setb []string
-	for i, key := range keys {
-		set1 := strings.Split(key, ",")
-		fmt.Println(i)
-		for _, key2 := range keys {
-			set2 := strings.Split(key2, ",")
-			tempMax := results[key] + results[key2]
-			if isDisjoint(set1, set2) && max < tempMax {
+	for _, value1 := range results {
+		for _, value2 := range results {
+			tempMax := value2.value + value1.value
+			if !value2.bits.Intersection(&value1.bits).Any() && max < tempMax {
 				max = tempMax
-				seta = set1
-				setb = set2
-
 			}
 		}
 	}
-
 	fmt.Println(max)
-	fmt.Println(seta)
-	fmt.Println(setb)
 }
