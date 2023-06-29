@@ -38,15 +38,6 @@ func canMove(dir []Point, rock Rock, grid [][]byte) bool {
 }
 
 func fellRock(jets []byte, rock Rock, grid [][]byte) {
-	jet := jets[0]
-	var dir Point
-	if jet == byte('>') {
-		// dir = Point{
-		// 	x:
-		// }
-	}
-	for canMove() {
-	}
 }
 
 func main() {
@@ -115,7 +106,7 @@ func main() {
 				y: lastObstacle + 3,
 			},
 		}
-		fellRock(currRock, grid)
+		fellRock([]byte(jets), currRock, grid)
 	}
 
 	fmt.Println(lastObstacle)
