@@ -109,5 +109,5 @@ func main() {
 		fellRock([]byte(jets), currRock, grid)
 	}
 
-	fmt.Println(lastObstacle)
+	// fmt.Println(lastObstacle)
 }
