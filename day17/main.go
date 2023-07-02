@@ -21,23 +21,102 @@ type Shape struct {
 	height int
 }
 
-type Rock struct {
-	position Point // Top left position of the Rock
-	shape    Shape
+func isObstacle(value byte) bool {
+	if value == '@' || value == '#' {
+		return true
+	}
+	return false
 }
 
-func canMove(dir []Point, rock Rock, grid [][]byte) bool {
-	for i := 0; i < len(rock.shape.points); i++ {
-		point := rock.shape.points[i]
-		if grid[point.x][point.y] != 0 {
+func isOutOfBounds(x int, y int, grid [][7]byte) bool {
+	if len(grid) <= y || len(grid[0]) <= x {
+		return true
+	}
+	return false
+}
+
+func canMove(dir Point, position Point, rock Shape, grid [][7]byte) bool {
+	// TODO return real value
+	for _, point := range rock.points {
+		nextPoint := Point{
+			x: position.x + dir.x + point.x,
+			y: position.y + dir.y + point.y,
+		}
+		if isOutOfBounds(nextPoint.x, nextPoint.y, grid) || isObstacle(grid[nextPoint.y][nextPoint.x]) {
 			return false
 		}
 	}
-
 	return true
 }
 
-func fellRock(jets []byte, rock Rock, grid [][]byte) {
+func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte) int {
+	position := startingPosition
+	idx := 0
+	xDir := -1
+	if jets[0] == '>' {
+		xDir = 1
+	}
+	dir := Point{
+		x: xDir,
+		y: 0,
+	}
+
+	for {
+		moved := canMove(dir, position, rock, grid)
+
+		if !moved && dir.x == 0 {
+			// Need to settle at this point
+			break
+		} else {
+			// Update positions
+			position = Point{
+				x: position.x + dir.x,
+				y: position.y + dir.y,
+			}
+		}
+
+		// Set next dir after moving
+		if idx%2 == 0 {
+			xDir := -1
+			if jets[0] == '>' {
+				xDir = +1
+			}
+			// Move with jet
+			dir = Point{
+				x: xDir,
+				y: 0,
+			}
+		} else {
+			// Move with falling
+			dir = Point{
+				x: 0,
+				y: -1,
+			}
+		}
+
+		idx++
+	}
+
+	// Settle the falling rock
+
+	for _, point := range rock.points {
+		fmt.Println(position.y+point.y, position.x+point.x)
+		grid[position.y+point.y][position.x+point.x] = '#'
+	}
+
+	// Return the index of the last obstacle
+
+	// TODO return rigth value
+	return 1
+}
+
+func printGrid(grid [][7]byte) {
+	for i := len(grid) - 1; i >= 0; i-- {
+		for j := 0; j < len(grid[0]); j++ {
+			fmt.Print(grid[i][j])
+		}
+		fmt.Println()
+	}
 }
 
 func main() {
@@ -94,20 +173,24 @@ func main() {
 			height: 2,
 		},
 	}
-	lastObstacle := 0
 
-	grid := make([][]byte, 1)
+	grid := make([][7]byte, 5)
+	// grid[0] = make([]byte, 7)
+	lastObstacle := 4
 
 	for i := 0; i < rounds; i++ {
-		currRock := Rock{
-			shape: shapes[0],
-			position: Point{
-				x: 2,
-				y: lastObstacle + 3,
-			},
+		currRock := shapes[0]
+		startingPosition := Point{
+			x: 1,
+			y: lastObstacle,
 		}
-		fellRock([]byte(jets), currRock, grid)
+		lastObstacle = rockefeller([]byte(jets), startingPosition, currRock, grid)
 	}
 
-	// fmt.Println(lastObstacle)
+	fmt.Println(lastObstacle)
+	fmt.Println(shapes)
+	printGrid(grid)
+
+	// First process jets
+	// Then process falling
 }
