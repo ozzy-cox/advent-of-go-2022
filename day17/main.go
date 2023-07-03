@@ -29,7 +29,7 @@ func isObstacle(value byte) bool {
 }
 
 func isOutOfBounds(x int, y int, grid [][7]byte) bool {
-	if len(grid) <= y || len(grid[0]) <= x {
+	if len(grid) <= y || y < 0 || len(grid[0]) <= x {
 		return true
 	}
 	return false
@@ -64,9 +64,11 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 	for {
 		moved := canMove(dir, position, rock, grid)
 
-		if !moved && dir.x == 0 {
-			// Need to settle at this point
-			break
+		if !moved {
+			if dir.x == 0 {
+				// Need to settle at this point
+				break
+			}
 		} else {
 			// Update positions
 			position = Point{
@@ -76,9 +78,9 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 		}
 
 		// Set next dir after moving
-		if idx%2 == 0 {
+		if idx%2 != 0 {
 			xDir := -1
-			if jets[0] == '>' {
+			if jets[len(grid)-position.y] == '>' {
 				xDir = +1
 			}
 			// Move with jet
@@ -107,13 +109,17 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 	// Return the index of the last obstacle
 
 	// TODO return rigth value
-	return 1
+	return position.y + rock.height + 3
 }
 
 func printGrid(grid [][7]byte) {
 	for i := len(grid) - 1; i >= 0; i-- {
 		for j := 0; j < len(grid[0]); j++ {
-			fmt.Print(grid[i][j])
+			if grid[i][j] == 0 {
+				fmt.Print(".")
+			} else {
+				fmt.Printf("%c", grid[i][j])
+			}
 		}
 		fmt.Println()
 	}
@@ -185,11 +191,16 @@ func main() {
 			y: lastObstacle,
 		}
 		lastObstacle = rockefeller([]byte(jets), startingPosition, currRock, grid)
+		if lastObstacle >= len(grid) {
+			for i := len(grid); i < lastObstacle+1; i++ {
+				grid = append(grid, [7]byte{})
+			}
+		}
+		printGrid(grid)
 	}
 
 	fmt.Println(lastObstacle)
 	fmt.Println(shapes)
-	printGrid(grid)
 
 	// First process jets
 	// Then process falling
