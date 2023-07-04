@@ -29,7 +29,7 @@ func isObstacle(value byte) bool {
 }
 
 func isOutOfBounds(x int, y int, grid [][7]byte) bool {
-	if len(grid) <= y || y < 0 || len(grid[0]) <= x {
+	if len(grid) <= y || y < 0 || x < 0 || len(grid[0]) <= x {
 		return true
 	}
 	return false
@@ -49,11 +49,13 @@ func canMove(dir Point, position Point, rock Shape, grid [][7]byte) bool {
 	return true
 }
 
-func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte) int {
+func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte, jetIdx int) (int, int) {
 	position := startingPosition
-	idx := 0
+	idx := jetIdx
+
 	xDir := -1
-	if jets[0] == '>' {
+	jet := jets[idx%len(jets)]
+	if jet == '>' {
 		xDir = 1
 	}
 	dir := Point{
@@ -77,11 +79,13 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 			}
 		}
 
+		idx++
 		// Set next dir after moving
-		if idx%2 != 0 {
+		if idx%2 == 0 {
+			jet = jets[idx/2%len(jets)]
 			xDir := -1
-			if jets[len(grid)-position.y] == '>' {
-				xDir = +1
+			if jet == '>' {
+				xDir = 1
 			}
 			// Move with jet
 			dir = Point{
@@ -96,7 +100,6 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 			}
 		}
 
-		idx++
 	}
 
 	// Settle the falling rock
@@ -108,8 +111,7 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 
 	// Return the index of the last obstacle
 
-	// TODO return rigth value
-	return position.y + rock.height + 3
+	return position.y + rock.height + 3, idx
 }
 
 func printGrid(grid [][7]byte) {
@@ -128,6 +130,7 @@ func printGrid(grid [][7]byte) {
 func main() {
 	jets := parse()
 	fmt.Println(jets)
+	fmt.Println(len(jets))
 	rounds := 2022
 
 	shapes := [5]Shape{
@@ -183,19 +186,18 @@ func main() {
 	grid := make([][7]byte, 5)
 	// grid[0] = make([]byte, 7)
 	lastObstacle := 4
+	jetIdx := 0
 
 	for i := 0; i < rounds; i++ {
-		currRock := shapes[0]
+		currRock := shapes[i%len(shapes)]
+		for i := 0; i < shapes[i%len(shapes)].height; i++ {
+			grid = append(grid, [7]byte{})
+		}
 		startingPosition := Point{
 			x: 1,
 			y: lastObstacle,
 		}
-		lastObstacle = rockefeller([]byte(jets), startingPosition, currRock, grid)
-		if lastObstacle >= len(grid) {
-			for i := len(grid); i < lastObstacle+1; i++ {
-				grid = append(grid, [7]byte{})
-			}
-		}
+		lastObstacle, jetIdx = rockefeller([]byte(jets), startingPosition, currRock, grid, jetIdx)
 		printGrid(grid)
 	}
 
