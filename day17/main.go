@@ -6,7 +6,7 @@ import (
 )
 
 func parse() string {
-	file, _ := os.ReadFile("smallinput.txt")
+	file, _ := os.ReadFile("input.txt")
 
 	return string(file)
 }
@@ -53,36 +53,20 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 	position := startingPosition
 	idx := jetIdx
 
-	xDir := -1
-	jet := jets[idx%len(jets)]
-	if jet == '>' {
-		xDir = 1
-	}
-	dir := Point{
-		x: xDir,
-		y: 0,
-	}
+	// xDir := -1
+	jet := jets[idx/2%len(jets)]
+	// if jet == '>' {
+	// 	xDir = 1
+	// }
+	var dir Point
+	// dir := Point{
+	// 	x: xDir,
+	// 	y: 0,
+	// }
 
 	for {
-		moved := canMove(dir, position, rock, grid)
-
-		if !moved {
-			if dir.x == 0 {
-				// Need to settle at this point
-				break
-			}
-		} else {
-			// Update positions
-			position = Point{
-				x: position.x + dir.x,
-				y: position.y + dir.y,
-			}
-		}
-
-		idx++
-		// Set next dir after moving
 		if idx%2 == 0 {
-			jet = jets[idx/2%len(jets)]
+			jet = jets[(idx/2)%len(jets)]
 			xDir := -1
 			if jet == '>' {
 				xDir = 1
@@ -99,22 +83,33 @@ func rockefeller(jets []byte, startingPosition Point, rock Shape, grid [][7]byte
 				y: -1,
 			}
 		}
+		moved := canMove(dir, position, rock, grid)
 
+		idx++
+		if !moved {
+			if dir.x == 0 {
+				// Need to settle at this point
+				break
+			}
+		} else {
+			// Update positions
+			position = Point{
+				x: position.x + dir.x,
+				y: position.y + dir.y,
+			}
+		}
 	}
 
-	// Settle the falling rock
-
 	for _, point := range rock.points {
-		fmt.Println(position.y+point.y, position.x+point.x)
 		grid[position.y+point.y][position.x+point.x] = '#'
 	}
 
 	// Return the index of the last obstacle
 
-	return position.y + rock.height + 3, idx
+	return position.y + rock.height, idx
 }
 
-func printGrid(grid [][7]byte) {
+func printGrid(grid [][7]byte, p Point) {
 	for i := len(grid) - 1; i >= 0; i-- {
 		for j := 0; j < len(grid[0]); j++ {
 			if grid[i][j] == 0 {
@@ -129,8 +124,6 @@ func printGrid(grid [][7]byte) {
 
 func main() {
 	jets := parse()
-	fmt.Println(jets)
-	fmt.Println(len(jets))
 	rounds := 2022
 
 	shapes := [5]Shape{
@@ -185,25 +178,27 @@ func main() {
 
 	grid := make([][7]byte, 5)
 	// grid[0] = make([]byte, 7)
-	lastObstacle := 4
+	lastObstacle := 0
 	jetIdx := 0
+	lastHeight := 0
 
 	for i := 0; i < rounds; i++ {
 		currRock := shapes[i%len(shapes)]
-		for i := 0; i < shapes[i%len(shapes)].height; i++ {
+		startingPosition := Point{
+			x: 2,
+			y: lastObstacle + 3,
+		}
+		lastHeight, jetIdx = rockefeller([]byte(jets), startingPosition, currRock, grid, jetIdx)
+		if lastHeight > lastObstacle {
+			lastObstacle = lastHeight
+		}
+		for j := len(grid); j < lastObstacle+3+shapes[(i+1)%len(shapes)].height; j++ {
 			grid = append(grid, [7]byte{})
 		}
-		startingPosition := Point{
-			x: 1,
-			y: lastObstacle,
-		}
-		lastObstacle, jetIdx = rockefeller([]byte(jets), startingPosition, currRock, grid, jetIdx)
-		printGrid(grid)
+
+		printGrid(grid, startingPosition)
+		fmt.Println(lastObstacle)
 	}
 
 	fmt.Println(lastObstacle)
-	fmt.Println(shapes)
-
-	// First process jets
-	// Then process falling
 }
