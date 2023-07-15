@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -12,11 +13,12 @@ type Blueprint [4][4]int
 
 // type Blueprint int
 
-func parse() []Blueprint {
-	file, _ := os.Open("smallinput.txt")
+func parse() (*[]Blueprint, [][3]int) {
+	file, _ := os.Open("input.txt")
 	scanner := bufio.NewScanner(file)
 	blueprints := make([]Blueprint, 0)
 	costIndices := [...]int{6, 12, 18, 21, 27, 30}
+	maxSpends := make([][3]int, 0)
 	for scanner.Scan() {
 		line := scanner.Text()
 		tokens := strings.Split(line, " ")
@@ -28,109 +30,110 @@ func parse() []Blueprint {
 
 		blueprint := Blueprint{
 			[4]int{costs[0], 0, 0, 0},
-			[4]int{costs[2], 0, 0, 0},
+			[4]int{costs[1], 0, 0, 0},
 			[4]int{costs[2], costs[3], 0, 0},
 			[4]int{costs[4], 0, costs[5], 0},
 		}
+		maxSpend := [3]int{}
+
+		for _, recipe := range blueprint {
+			for j, res := range recipe {
+				if j <= 3 && res > 0 {
+					maxSpend[j] = int(math.Max(float64(maxSpend[j]), float64(recipe[j])))
+				}
+			}
+		}
 		blueprints = append(blueprints, blueprint)
+		maxSpends = append(maxSpends, maxSpend)
 	}
 
-	return blueprints
+	return &blueprints, maxSpends
 }
 
-func add(a [4]int, b [4]int) [4]int {
-	sum := [4]int{}
-	for i := 0; i < 4; i++ {
-		sum[i] = a[i] + b[i]
-	}
-	return sum
+type State struct {
+	resources [4]int
+	robots    [4]int
+	time      int
 }
 
-func subtract(a [4]int, b [4]int) [4]int {
-	diff := [4]int{}
-	for i := 0; i < 4; i++ {
-		diff[i] = a[i] - b[i]
-	}
-	return diff
-}
-
-func isGE(a [4]int, b [4]int) bool {
-	for i := 0; i < 4; i++ {
-		if a[i] < b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func max(values []int) int {
-	max := 0
-	for i := 0; i < len(values); i++ {
-		if values[i] > max {
-			max = values[i]
-		}
-	}
-	return max
-}
-
-func simulateBlueprint(bp Blueprint, robots [4]int, resources [4]int, rounds int, cache map[[9]int]int) int {
+func simulateBlueprint(bp Blueprint, maxSpend [3]int, robots [4]int, resources [4]int, rounds int, cache map[State]int) int {
 	if rounds == 0 {
-		if resources[3] > 7 {
-			fmt.Println(resources[3])
-		}
 		return resources[3]
 	}
 
-	// if cachedVal, ok := cache[[9]int{
-	// 	robots[0],
-	// 	robots[1],
-	// 	robots[2],
-	// 	robots[3],
-	// 	resources[0],
-	// 	resources[1],
-	// 	resources[2],
-	// 	resources[3],
-	// 	rounds,
-	// }]; ok {
-	// 	return cachedVal
-	// }
-
-	results := make([]int, 0)
-	resourcesToAdd := add(robots, [4]int{})
-	// results = append(results, simulateBlueprint(bp, robots, resources, rounds-1, cache))
-	for j := 3; j >= 0; j-- {
-		cost := bp[j]
-		for isGE(resources, cost) {
-			results = append(results, simulateBlueprint(bp, robots, resources, rounds-1, cache))
-			robots[j] += 1
-			resources = subtract(resources, cost)
-			results = append(results, simulateBlueprint(bp, robots, resources, rounds-1, cache))
-		}
+	key := State{
+		resources: resources,
+		robots:    robots,
+		time:      rounds,
 	}
-	resources = add(resources, resourcesToAdd)
-	results = append(results, simulateBlueprint(bp, robots, resources, rounds-1, cache))
+	if val, ok := cache[key]; ok {
+		return val
+	}
 
-	// Add to resources
-	fmt.Println(robots)
-	cache[[9]int{
-		robots[0],
-		robots[1],
-		robots[2],
-		robots[3],
-		resources[0],
-		resources[1],
-		resources[2],
-		resources[3],
-		rounds,
-	}] = max(results)
-	return max(results)
+	maxVal := resources[3] + robots[3]*rounds
+	if maxVal > 10 {
+		fmt.Print()
+	}
+
+	for i, recipe := range bp {
+		if i != 3 && robots[i] >= maxSpend[i] {
+			continue
+		}
+
+		wait := 0
+
+		broke := false
+		for j, res := range recipe {
+			if res > 0 {
+				if robots[j] == 0 {
+					broke = true
+					break
+				}
+				necessaryRes := float64(res-resources[j]) / float64(robots[j])
+				wait = int(math.Max(float64(wait), math.Ceil(necessaryRes)))
+			}
+		}
+		if !broke {
+			remtime := rounds - wait - 1
+			if remtime <= 0 {
+				// Maybe SUS !!!
+				continue
+			}
+
+			resources_ := resources
+			robots_ := robots
+			for k := 0; k < 4; k++ {
+				resources_[k] = resources_[k] + robots[k]*(wait+1)
+			}
+
+			for k := 0; k < 4; k++ {
+				resources_[k] -= recipe[k]
+			}
+			robots_[i] += 1
+
+			for k := 0; k < 3; k++ {
+				resources_[k] = int(math.Min(float64(resources_[k]), float64(maxSpend[k]*remtime)))
+			}
+
+			maxVal = int(math.Max(float64(maxVal), float64(simulateBlueprint(bp, maxSpend, robots_, resources_, remtime, cache))))
+		}
+
+	}
+
+	cache[key] = maxVal
+	return maxVal
 }
 
 func main() {
-	blueprints := parse()
-	resources := [4]int{}
-	robots := [4]int{1, 0, 0, 0}
-	resultCache := make(map[[9]int]int)
-	r := simulateBlueprint(blueprints[1], robots, resources, 27, resultCache)
-	fmt.Println(r)
+	blueprints, maxSpend := parse()
+
+	sum := 0
+	for i, bp := range *blueprints {
+		resources := [4]int{}
+		robots := [4]int{1, 0, 0, 0}
+		resultCache := make(map[State]int)
+		r := simulateBlueprint(bp, maxSpend[i], robots, resources, 24, resultCache)
+		sum += r * (i + 1)
+	}
+	fmt.Println(sum)
 }
