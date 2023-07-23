@@ -6,23 +6,15 @@ import (
 )
 
 func main() {
-	messages := make(chan int)
+	bufferedMessages := make(chan int, 1)
 
 	go func() {
-		messages <- 123
+		time.Sleep(2 * time.Second)
+		fmt.Println("done")
+		time.Sleep(time.Second / 2)
+
+		bufferedMessages <- 1
 	}()
-
-	// wait
-
-	fmt.Println(<-messages)
-
-	bufferedMessages := make(chan int, 5)
-	bufferedMessages <- 123
-	bufferedMessages <- 234
-	bufferedMessages <- 345
-
-	fmt.Println(<-bufferedMessages)
-	fmt.Println(<-bufferedMessages)
-	time.Sleep(time.Second)
-	fmt.Println(<-bufferedMessages)
+	<-bufferedMessages
+	fmt.Println("dunner")
 }
